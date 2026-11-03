@@ -1,0 +1,54 @@
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    container_name: thermos-postgis
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: thermos_db
+      POSTGRES_USER: thermos_user
+      POSTGRES_PASSWORD: thermos_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - thermos_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U thermos_user -d thermos_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: thermos-backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    environment:
+      APP_NAME: "THERMOS AI"
+      APP_ENV: "development"
+      DEBUG: "true"
+      HOST: "0.0.0.0"
+      PORT: "8000"
+      DATABASE_URL: "postgresql+psycopg://thermos_user:thermos_password@db:5432/thermos_db"
+      POSTGRES_HOST: "db"
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: "thermos_db"
+      POSTGRES_USER: "thermos_user"
+      POSTGRES_PASSWORD: "thermos_password"
+      CORS_ORIGINS: "http://localhost:3000,http://localhost:3001,http://127.0.0.1:3000"
+      SECRET_KEY: "thermos-ai-insecure-default-key-change-in-production-123456789"
+      ENABLE_DEMO_MODE: "true"
+      ENABLE_ML_PREDICTIONS: "true"
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./ml/saved_models:/app/ml/saved_models
+
+volumes:
+  thermos_postgres_data:
+
